@@ -25,7 +25,19 @@ class SimplicialComplexOperators {
          * @param {module:Core.Mesh} mesh The input mesh which we index.
          */
         assignElementIndices(mesh) {
-                // TODO
+                // TOeDO 
+                let i = 0;
+                for(const v of mesh.vertices) {
+                        v.index = i++;
+                }
+                i = 0;
+                for(const e of mesh.edges) {
+                        e.index = i++;
+                }
+                i = 0;
+                for(const f of mesh.faces) {
+                        f.index = i++;
+                }
         }
 
         /** Returns the vertex-edge adjacency matrix of the given mesh.
@@ -34,7 +46,14 @@ class SimplicialComplexOperators {
          * @returns {module:LinearAlgebra.SparseMatrix} The vertex-edge adjacency matrix of the given mesh.
          */
         buildVertexEdgeAdjacencyMatrix(mesh) {
-                // TODO
+                //TOeDO
+
+                let T = new Triplet(mesh.edges.length, mesh.vertices.length);
+                for (let e of mesh.edges) {
+                        T.addEntry(1, e.index, e.halfedge.vertex.index);
+                        T.addEntry(1, e.index, e.halfedge.twin.vertex.index);
+                }
+                return SparseMatrix.fromTriplet(T);
         }
 
         /** Returns the edge-face adjacency matrix.
@@ -43,7 +62,16 @@ class SimplicialComplexOperators {
          * @returns {module:LinearAlgebra.SparseMatrix} The edge-face adjacency matrix of the given mesh.
          */
         buildEdgeFaceAdjacencyMatrix(mesh) {
-                // TODO
+                // TOeDO
+                let T = new Triplet(mesh.faces.length, mesh.edges.length);
+                for (let f of mesh.faces) {
+                        let h = f.halfedge;
+                        do {
+                                T.addEntry(1, f.index, h.edge.index);
+                                h = h.next;
+                        } while (h !== f.halfedge);
+                }
+                return SparseMatrix.fromTriplet(T);
         }
 
         /** Returns a column vector representing the vertices of the
@@ -54,7 +82,11 @@ class SimplicialComplexOperators {
          *  vertex i is in the given subset and 0 otherwise
          */
         buildVertexVector(subset) {
-                // TODO
+                let v = DenseMatrix.zeros(this.mesh.vertices.length, 1);
+                for (let i of subset.vertices) {
+                        v.set(1, i, 0);
+                }
+                return v;
         }
 
         /** Returns a column vector representing the edges of the
@@ -96,7 +128,8 @@ class SimplicialComplexOperators {
          * @returns {module:Core.MeshSubset} The closure of the given subset.
          */
         closure(subset) {
-                // TODO
+                // TODO endlia
+
 
                 return subset; // placeholder
         }

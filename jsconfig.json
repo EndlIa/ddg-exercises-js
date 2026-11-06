@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"target": "es2017",
+		"lib": ["es2017", "dom"],
+		"allowJs": true,
+		"checkJs": false,
+		"noEmit": true
+	},
+	"include": [
+		"core/**/*.js",
+		"linear-algebra/**/*.js",
+		"utils/**/*.js",
+		"libs/**/*.js",
+		"projects/**/*.js",
+		"tests/**/*.js"
+	],
+	"exclude": [
+		"**/solution.js",
+		"linear-algebra/linear-algebra-asm.js",
+		"docs/**"
+	]
+}
