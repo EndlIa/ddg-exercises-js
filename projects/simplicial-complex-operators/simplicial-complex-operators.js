@@ -97,7 +97,11 @@ class SimplicialComplexOperators {
          *  edge i is in the given subset and 0 otherwise
          */
         buildEdgeVector(subset) {
-                // TODO
+                let v = DenseMatrix.zeros(this.mesh.edges.length, 1);
+                for (let i of subset.edges) {
+                        v.set(1, i, 0);
+                }
+                return v;
         }
 
         /** Returns a column vector representing the faces of the
@@ -108,7 +112,11 @@ class SimplicialComplexOperators {
          *  face i is in the given subset and 0 otherwise
          */
         buildFaceVector(subset) {
-                // TODO
+                let v = DenseMatrix.zeros(this.mesh.faces.length, 1);
+                for (let i of subset.faces) {
+                        v.set(1, i, 0);
+                }
+                return v;
         }
 
         /** Returns the star of a subset.
@@ -117,9 +125,34 @@ class SimplicialComplexOperators {
          * @returns {module:Core.MeshSubset} The star of the given subset.
          */
         star(subset) {
-                // TODO
+                let result = new MeshSubset();
 
-                return subset; // placeholder
+                for (let i of subset.vertices) {
+                        result.addVertex(i);
+                        let v = this.mesh.vertices[i];
+                        for (let e of v.adjacentEdges()) {
+                                result.addEdge(e.index);
+                        }
+                        for (let f of v.adjacentFaces()) {
+                                result.addFace(f.index);
+                        }
+                }
+
+                for (let i of subset.edges) {
+                        result.addEdge(i);
+                        let h = this.mesh.edges[i].halfedge;
+                        for (let he of [h, h.twin]) {
+                                if (!he.onBoundary) {
+                                        result.addFace(he.face.index);
+                                }
+                        }
+                }
+
+                for (let i of subset.faces) {
+                        result.addFace(i);
+                }
+
+                return result;
         }
 
         /** Returns the closure of a subset.
@@ -128,10 +161,30 @@ class SimplicialComplexOperators {
          * @returns {module:Core.MeshSubset} The closure of the given subset.
          */
         closure(subset) {
-                // TODO endlia
+                let result = new MeshSubset();
 
+                for (let i of subset.vertices) {
+                        result.addVertex(i);
+                }
 
-                return subset; // placeholder
+                for (let i of subset.edges) {
+                        result.addEdge(i);
+                        let h = this.mesh.edges[i].halfedge;
+                        result.addVertex(h.vertex.index);
+                        result.addVertex(h.twin.vertex.index);
+                }
+
+                for (let i of subset.faces) {
+                        result.addFace(i);
+                        let f = this.mesh.faces[i];
+                        for (let e of f.adjacentEdges()) {
+                                result.addEdge(e.index);
+                                result.addVertex(e.halfedge.vertex.index);
+                                result.addVertex(e.halfedge.twin.vertex.index);
+                        }
+                }
+
+                return result;
         }
 
         /** Returns the link of a subset.
@@ -140,9 +193,60 @@ class SimplicialComplexOperators {
          * @returns {module:Core.MeshSubset} The link of the given subset.
          */
         link(subset) {
-                // TODO
+                let result = new MeshSubset();
 
-                return subset; // placeholder
+                for (let i of subset.vertices) {
+                        let v = this.mesh.vertices[i];
+                        for (let u of v.adjacentVertices()) {
+                                result.addVertex(u.index);
+                        }
+                        for (let f of v.adjacentFaces()) {
+                                for (let e of f.adjacentEdges()) {
+                                        if (e.halfedge.vertex !== v && e.halfedge.twin.vertex !== v) {
+                                                result.addEdge(e.index);
+                                        }
+                                }
+                        }
+                }
+
+                for (let i of subset.edges) {
+                        let h = this.mesh.edges[i].halfedge;
+                        for (let he of [h, h.twin]) {
+                                if (!he.onBoundary) {
+                                        for (let v of he.face.adjacentVertices()) {
+                                                if (v !== h.vertex && v !== h.twin.vertex) {
+                                                        result.addVertex(v.index);
+                                                }
+                                        }
+                                }
+                        }
+                }
+
+                let forbidden = new Set(subset.vertices);
+                for (let i of subset.edges) {
+                        let h = this.mesh.edges[i].halfedge;
+                        forbidden.add(h.vertex.index);
+                        forbidden.add(h.twin.vertex.index);
+                }
+                for (let i of subset.faces) {
+                        for (let v of this.mesh.faces[i].adjacentVertices()) {
+                                forbidden.add(v.index);
+                        }
+                }
+
+                for (let i of Array.from(result.vertices)) {
+                        if (forbidden.has(i)) {
+                                result.deleteVertex(i);
+                        }
+                }
+                for (let i of Array.from(result.edges)) {
+                        let h = this.mesh.edges[i].halfedge;
+                        if (forbidden.has(h.vertex.index) || forbidden.has(h.twin.vertex.index)) {
+                                result.deleteEdge(i);
+                        }
+                }
+
+                return result;
         }
 
         /** Returns true if the given subset is a subcomplex and false otherwise.
@@ -169,8 +273,38 @@ class SimplicialComplexOperators {
          * @returns {module:Core.MeshSubset} The boundary of the given pure subcomplex.
          */
         boundary(subset) {
-                // TODO
+                let result = new MeshSubset();
 
-                return subset; // placeholder
+                if (subset.faces.size > 0) {
+                        let incidentFaces = new Map();
+                        for (let i of subset.faces) {
+                                for (let e of this.mesh.faces[i].adjacentEdges()) {
+                                        incidentFaces.set(e.index, (incidentFaces.get(e.index) || 0) + 1);
+                                }
+                        }
+                        for (let [i, count] of incidentFaces) {
+                                if (count % 2 === 1) {
+                                        result.addEdge(i);
+                                        let h = this.mesh.edges[i].halfedge;
+                                        result.addVertex(h.vertex.index);
+                                        result.addVertex(h.twin.vertex.index);
+                                }
+                        }
+                } else if (subset.edges.size > 0) {
+                        let degree = new Map();
+                        for (let i of subset.edges) {
+                                let h = this.mesh.edges[i].halfedge;
+                                for (let v of [h.vertex.index, h.twin.vertex.index]) {
+                                        degree.set(v, (degree.get(v) || 0) + 1);
+                                }
+                        }
+                        for (let [i, count] of degree) {
+                                if (count % 2 === 1) {
+                                        result.addVertex(i);
+                                }
+                        }
+                }
+
+                return result;
         }
 }
